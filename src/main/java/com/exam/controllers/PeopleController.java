@@ -2,16 +2,23 @@ package com.exam.controllers;
 
 import com.exam.models.Person;
 import com.exam.service.PeopleService;
+import com.exam.util.PersonErrorResponse;
+import com.exam.util.PersonNotCreatedException;
+import com.exam.util.PersonNotFoundException;
 import jakarta.persistence.Column;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.annotation.*;
 
+import javax.naming.Binding;
 import java.time.Period;
 import java.util.List;
 
@@ -33,6 +40,51 @@ public class PeopleController {
 
     @GetMapping("/{id}")
     public Person getPeople(@PathVariable("id") int id) {
+
         return peopleService.findOne(id);
     }
+
+    @PostMapping()
+    public ResponseEntity<HttpStatus> create(@RequestBody @Valid Person person,
+                    BindingResult bindingResult){
+        if (bindingResult.hasErrors()){
+            StringBuilder errorMsg = new StringBuilder();
+
+            List<FieldError> errors = bindingResult.getFieldErrors();
+            for (FieldError error : errors) {
+                errorMsg.append(error.getField())
+                        .append(" - ").append(error.getDefaultMessage())
+                        .append(";");
+            }
+
+            throw new PersonNotCreatedException(errorMsg.toString());
+        }
+        peopleService.save(person);
+
+        // отправляем http ответ с пустым телом и статусом 200
+        return ResponseEntity.ok(HttpStatus.OK);
+    }
+
+    @ExceptionHandler
+    private ResponseEntity<PersonErrorResponse> handleException(PersonNotFoundException e){
+        PersonErrorResponse response = new PersonErrorResponse(
+            "Нет человека с таким id",
+            System.currentTimeMillis()
+        );
+
+        // В HTTP ответе тело ответа(response) и статус в заголовке HTTP ответа
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler
+    private ResponseEntity<PersonErrorResponse> handleException(PersonNotCreatedException e){
+        PersonErrorResponse response = new PersonErrorResponse(
+                e.getMessage(),
+                System.currentTimeMillis()
+        );
+
+        // В HTTP ответе тело ответа(response) и статус в заголовке HTTP ответа
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
 }
+

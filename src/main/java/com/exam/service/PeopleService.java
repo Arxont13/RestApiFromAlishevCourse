@@ -3,6 +3,7 @@ package com.exam.service;
 
 import com.exam.models.Person;
 import com.exam.repositories.PeopleRepository;
+import com.exam.util.PersonNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +28,13 @@ public class PeopleService {
 
     public Person findOne(int id){
         Optional<Person> foundPerson = peopleRepository.findById(id);
-        return foundPerson.orElse(null);
+
+        return foundPerson.orElseThrow(PersonNotFoundException::new);
     }
+    @Transactional
+    public void save(Person person){
+        peopleRepository.save(person);
+    }
+
 
 }
