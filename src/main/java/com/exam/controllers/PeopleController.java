@@ -1,51 +1,51 @@
 package com.exam.controllers;
 
+import com.exam.dto.PersonDTO;
 import com.exam.models.Person;
 import com.exam.service.PeopleService;
 import com.exam.util.PersonErrorResponse;
 import com.exam.util.PersonNotCreatedException;
 import com.exam.util.PersonNotFoundException;
-import jakarta.persistence.Column;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.validation.Valid;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
 
-import javax.naming.Binding;
-import java.time.Period;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/people")
 public class PeopleController {
 
     private final PeopleService peopleService;
+    private final ModelMapper modelMapper;
 
     @Autowired
-    public PeopleController(PeopleService peopleService){
+    public PeopleController(PeopleService peopleService, ModelMapper modelMapper){
         this.peopleService = peopleService;
+        this.modelMapper = modelMapper;
     }
 
     @GetMapping()
-    public List<Person> getPeople() {
-      return peopleService.findAll();// jackson конвертирует объекты в json
+    public List<PersonDTO> getPeople() {
+
+        return peopleService.findAll().stream().map(this::convertToPersonDTO)
+                .collect(Collectors.toList());// jackson конвертирует объекты в json
     }
 
     @GetMapping("/{id}")
-    public Person getPeople(@PathVariable("id") int id) {
+    public PersonDTO getPeople(@PathVariable("id") int id) {
 
-        return peopleService.findOne(id);
+        return convertToPersonDTO(peopleService.findOne(id));
     }
 
     @PostMapping()
-    public ResponseEntity<HttpStatus> create(@RequestBody @Valid Person person,
+    public ResponseEntity<HttpStatus> create(@RequestBody @Valid PersonDTO personDto,
                     BindingResult bindingResult){
         if (bindingResult.hasErrors()){
             StringBuilder errorMsg = new StringBuilder();
@@ -59,7 +59,8 @@ public class PeopleController {
 
             throw new PersonNotCreatedException(errorMsg.toString());
         }
-        peopleService.save(person);
+        peopleService.save(convertToPerson(personDto));
+
 
         // отправляем http ответ с пустым телом и статусом 200
         return ResponseEntity.ok(HttpStatus.OK);
@@ -85,6 +86,14 @@ public class PeopleController {
 
         // В HTTP ответе тело ответа(response) и статус в заголовке HTTP ответа
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    private Person convertToPerson(PersonDTO personDTO){
+        return modelMapper.map(personDTO, Person.class);
+    }
+
+    private PersonDTO convertToPersonDTO(Person person){
+        return modelMapper.map(person, PersonDTO.class);
     }
 }
 
